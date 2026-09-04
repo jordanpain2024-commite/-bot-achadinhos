@@ -55,9 +55,9 @@ async function iniciarBot() {
 
     console.log("📡 Status da conexão:", connection);
 
-    // ----------------------------------------
+    // ======================================
     // CÓDIGO DE VINCULAÇÃO
-    // ----------------------------------------
+    // ======================================
 
     if (
       connection === "connecting" &&
@@ -96,23 +96,24 @@ async function iniciarBot() {
       }
     }
 
-    // ----------------------------------------
+    // ======================================
     // CONECTADO
-    // ----------------------------------------
+    // ======================================
 
     if (connection === "open") {
 
       console.log("");
       console.log("======================================");
-      console.log("🤖 BOT ACHADINHOS CONECTADO AO WHATSAPP!");
+      console.log("🤖 BOT ACHADINHOS CONECTADO!");
+      console.log("🛍️ ACHADOS OFERTAS IMPERDÍVEIS");
       console.log("======================================");
       console.log("");
 
     }
 
-    // ----------------------------------------
+    // ======================================
     // DESCONECTADO
-    // ----------------------------------------
+    // ======================================
 
     if (connection === "close") {
 
@@ -139,7 +140,93 @@ async function iniciarBot() {
   });
 
   // ========================================
-  // RECEBER MENSAGENS
+  // 👋 ENTRADA E SAÍDA DE PARTICIPANTES
+  // ========================================
+
+  sock.ev.on("group-participants.update", async (update) => {
+
+    try {
+
+      const {
+        id,
+        participants,
+        action
+      } = update;
+
+      console.log("");
+      console.log("👥 ALTERAÇÃO NO GRUPO");
+      console.log("📍 Grupo:", id);
+      console.log("👤 Participantes:", participants);
+      console.log("🔧 Ação:", action);
+
+      // ====================================
+      // 👋 NOVO MEMBRO
+      // ====================================
+
+      if (action === "add") {
+
+        for (const participante of participants) {
+
+          const numero =
+            participante.split("@")[0];
+
+          const mensagem =
+            `🎉 *BEM-VINDO(A)!* 🎉\n\n` +
+            `👤 Seja muito bem-vindo(a), @${numero}!\n\n` +
+            `🛍️ *ACHADOS OFERTAS IMPERDÍVEIS 📊📈*\n\n` +
+            `🔥 Aqui você encontra ofertas, promoções e achadinhos incríveis!\n\n` +
+            `📢 Fique de olho nas mensagens e aproveite as promoções!\n\n` +
+            `❤️ Aproveite o grupo!`;
+
+          await sock.sendMessage(id, {
+            text: mensagem,
+            mentions: [participante]
+          });
+
+          console.log(
+            `👋 Boas-vindas enviadas para ${numero}`
+          );
+        }
+      }
+
+      // ====================================
+      // 🚪 MEMBRO SAIU
+      // ====================================
+
+      if (action === "remove") {
+
+        for (const participante of participants) {
+
+          const numero =
+            participante.split("@")[0];
+
+          await sock.sendMessage(id, {
+            text:
+              `👋 *Até mais, @${numero}!*\n\n` +
+              `Esperamos ver você novamente por aqui! ❤️`,
+            mentions: [participante]
+          });
+
+          console.log(
+            `🚪 Despedida enviada para ${numero}`
+          );
+        }
+      }
+
+    } catch (erro) {
+
+      console.error(
+        "❌ Erro no sistema de entrada/saída:"
+      );
+
+      console.error(erro);
+
+    }
+
+  });
+
+  // ========================================
+  // 📩 RECEBER MENSAGENS
   // ========================================
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
@@ -151,42 +238,48 @@ async function iniciarBot() {
       try {
 
         if (!msg.message) {
-          console.log("⚠️ Mensagem sem conteúdo.");
           continue;
         }
 
         if (msg.key.fromMe) {
-          console.log("⏭️ Mensagem enviada pelo próprio bot.");
           continue;
         }
 
-        const remoteJid = msg.key.remoteJid;
+        const remoteJid =
+          msg.key.remoteJid;
 
-        // ====================================
-        // PEGAR TEXTO DA MENSAGEM
-        // ====================================
+        // ==================================
+        // PEGAR TEXTO
+        // ==================================
 
         let texto = "";
 
         if (msg.message.conversation) {
 
-          texto = msg.message.conversation;
+          texto =
+            msg.message.conversation;
 
-        } else if (
+        }
+
+        else if (
           msg.message.extendedTextMessage?.text
         ) {
 
           texto =
             msg.message.extendedTextMessage.text;
 
-        } else if (
+        }
+
+        else if (
           msg.message.imageMessage?.caption
         ) {
 
           texto =
             msg.message.imageMessage.caption;
 
-        } else if (
+        }
+
+        else if (
           msg.message.videoMessage?.caption
         ) {
 
@@ -195,7 +288,15 @@ async function iniciarBot() {
 
         }
 
-        texto = String(texto || "").trim();
+        texto =
+          String(texto || "").trim();
+
+        if (!texto) {
+          continue;
+        }
+
+        const comando =
+          texto.toLowerCase().trim();
 
         console.log("");
         console.log("======================================");
@@ -204,102 +305,190 @@ async function iniciarBot() {
         console.log("💬 Texto:", texto);
         console.log("======================================");
 
-        // ====================================
-        // SE NÃO TIVER TEXTO
-        // ====================================
-
-        if (!texto) {
-          console.log("⚠️ Essa mensagem não possui texto.");
-          continue;
-        }
-
-        const comando = texto
-          .toLowerCase()
-          .trim();
-
-        // ====================================
-        // !BOT
-        // ====================================
+        // ==================================
+        // 🤖 !BOT
+        // ==================================
 
         if (comando === "!bot") {
 
-          console.log("🤖 Comando !bot identificado!");
-          console.log("📤 Enviando resposta...");
+          console.log("🤖 !bot identificado!");
 
-          await sock.sendMessage(
-            remoteJid,
-            {
-              text:
-                "🤖 *BOT ACHADINHOS ONLINE!*\n\n" +
-                "🛍️ *ACHADOS OFERTAS IMPERDÍVEIS 📊📈*\n" +
-                "🔥 Bot funcionando normalmente!"
-            }
-          );
+          await sock.sendMessage(remoteJid, {
+            text:
+              "🤖 *BOT ACHADINHOS ONLINE!*\n\n" +
+              "🟢 Status: *ONLINE*\n" +
+              "🛍️ *ACHADOS OFERTAS IMPERDÍVEIS 📊📈*\n\n" +
+              "🔥 Bot funcionando normalmente!"
+          });
 
-          console.log("✅ Resposta do !bot enviada!");
+          console.log("✅ Resposta enviada!");
         }
 
-        // ====================================
-        // !AJUDA
-        // ====================================
+        // ==================================
+        // 📋 !MENU
+        // ==================================
 
-        else if (comando === "!ajuda") {
+        else if (
+          comando === "!menu" ||
+          comando === "!ajuda"
+        ) {
 
-          console.log("🤖 Comando !ajuda identificado!");
+          await sock.sendMessage(remoteJid, {
+            text:
+              "🤖 *MENU DO BOT*\n\n" +
 
-          await sock.sendMessage(
-            remoteJid,
-            {
-              text:
-                "🤖 *COMANDOS DO BOT*\n\n" +
-                "🔹 !bot — Verificar se estou online\n" +
-                "🔹 !ajuda — Mostrar comandos\n" +
-                "🔹 !oferta — Testar uma oferta"
-            }
-          );
+              "📌 *COMANDOS DISPONÍVEIS*\n\n" +
 
-          console.log("✅ Resposta do !ajuda enviada!");
+              "🤖 `!bot`\n" +
+              "Verifica se o bot está online.\n\n" +
+
+              "🔥 `!oferta`\n" +
+              "Mostra uma oferta de teste.\n\n" +
+
+              "📜 `!regras`\n" +
+              "Mostra as regras do grupo.\n\n" +
+
+              "ℹ️ `!grupo`\n" +
+              "Mostra informações do grupo.\n\n" +
+
+              "📋 `!menu`\n" +
+              "Mostra este menu.\n\n" +
+
+              "❤️ *ACHADOS OFERTAS IMPERDÍVEIS 📊📈*"
+          });
+
+          console.log("✅ Menu enviado!");
         }
 
-        // ====================================
-        // !OFERTA
-        // ====================================
+        // ==================================
+        // 🔥 !OFERTA
+        // ==================================
 
         else if (comando === "!oferta") {
 
-          console.log("🤖 Comando !oferta identificado!");
+          await sock.sendMessage(remoteJid, {
+            text:
+              "🔥 *OFERTA DO DIA!* 🔥\n\n" +
 
-          await sock.sendMessage(
-            remoteJid,
-            {
-              text:
-                "🔥 *OFERTA DO DIA!*\n\n" +
-                "🛍️ Produto em promoção\n" +
-                "💰 Aproveite o desconto!\n\n" +
-                "⚡ Corra porque pode acabar!"
-            }
-          );
+              "🛍️ *PRODUTO EM PROMOÇÃO*\n\n" +
 
-          console.log("✅ Resposta da !oferta enviada!");
+              "💰 De: ~~R$ 199,90~~\n" +
+              "🔥 Por: *R$ 99,90*\n\n" +
+
+              "📉 *50% DE DESCONTO!*\n\n" +
+
+              "⚡ Aproveite enquanto durar!\n\n" +
+
+              "🛒 *Link da oferta:*\n" +
+              "👉 https://exemplo.com\n\n" +
+
+              "⚠️ Valor sujeito a alteração."
+          });
+
+          console.log("✅ Oferta enviada!");
         }
 
-        // ====================================
-        // COMANDO NÃO RECONHECIDO
-        // ====================================
+        // ==================================
+        // 📜 !REGRAS
+        // ==================================
+
+        else if (comando === "!regras") {
+
+          await sock.sendMessage(remoteJid, {
+            text:
+              "📜 *REGRAS DO GRUPO*\n\n" +
+
+              "1️⃣ Respeite todos os participantes.\n\n" +
+              "2️⃣ Nada de spam.\n\n" +
+              "3️⃣ Não envie conteúdo ofensivo.\n\n" +
+              "4️⃣ Evite assuntos fora do objetivo do grupo.\n\n" +
+              "5️⃣ Aproveite as ofertas e achadinhos! 🛍️🔥\n\n" +
+
+              "❤️ *ACHADOS OFERTAS IMPERDÍVEIS 📊📈*"
+          });
+
+          console.log("✅ Regras enviadas!");
+        }
+
+        // ==================================
+        // ℹ️ !GRUPO
+        // ==================================
+
+        else if (comando === "!grupo") {
+
+          await sock.sendMessage(remoteJid, {
+            text:
+              "🛍️ *ACHADOS OFERTAS IMPERDÍVEIS 📊📈*\n\n" +
+
+              "🔥 Ofertas\n" +
+              "💰 Promoções\n" +
+              "🛒 Achadinhos\n" +
+              "📉 Descontos\n\n" +
+
+              "🤖 *Bot oficial do grupo*\n\n" +
+
+              "Digite `!menu` para ver os comandos."
+          });
+
+          console.log("✅ Informações enviadas!");
+        }
+
+        // ==================================
+        // ❤️ PALAVRAS AUTOMÁTICAS
+        // ==================================
+
+        else if (
+          comando === "bom dia" ||
+          comando === "bom dia!"
+        ) {
+
+          await sock.sendMessage(remoteJid, {
+            text:
+              "☀️ *BOM DIA, GALERA!* ☀️\n\n" +
+              "🔥 Que hoje apareçam muitos achadinhos!\n" +
+              "🛍️ Fiquem de olho nas ofertas! ❤️"
+          });
+
+        }
+
+        else if (
+          comando === "boa noite" ||
+          comando === "boa noite!"
+        ) {
+
+          await sock.sendMessage(remoteJid, {
+            text:
+              "🌙 *BOA NOITE, GALERA!* 🌙\n\n" +
+              "❤️ Descansem bem!\n" +
+              "🔥 Amanhã tem mais ofertas e achadinhos!"
+          });
+
+        }
+
+        // ==================================
+        // ❓ COMANDO DESCONHECIDO
+        // ==================================
 
         else if (comando.startsWith("!")) {
 
+          await sock.sendMessage(remoteJid, {
+            text:
+              "❓ *Comando não encontrado.*\n\n" +
+              "Digite `!menu` para ver os comandos disponíveis. 🤖"
+          });
+
           console.log(
-            "❓ Comando não reconhecido:",
+            "❓ Comando desconhecido:",
             comando
           );
-
         }
 
       } catch (erro) {
 
         console.error("");
-        console.error("❌ ERRO AO PROCESSAR MENSAGEM:");
+        console.error(
+          "❌ ERRO AO PROCESSAR MENSAGEM:"
+        );
         console.error(erro);
         console.error("");
 
@@ -312,12 +501,15 @@ async function iniciarBot() {
 }
 
 // ========================================
-// INICIAR
+// 🚀 INICIAR
 // ========================================
 
 iniciarBot().catch(erro => {
 
-  console.error("❌ ERRO FATAL AO INICIAR O BOT:");
+  console.error(
+    "❌ ERRO FATAL AO INICIAR O BOT:"
+  );
+
   console.error(erro);
 
 });
