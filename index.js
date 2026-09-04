@@ -7,11 +7,11 @@ const {
 const pino = require("pino");
 const http = require("http");
 
-// ========================================
-// SERVIDOR PARA O RENDER
-// ========================================
-
 const PORT = process.env.PORT || 3000;
+
+// ========================================
+// SERVIDOR RENDER
+// ========================================
 
 http.createServer((req, res) => {
   res.writeHead(200, {
@@ -41,81 +41,103 @@ async function iniciarBot() {
   sock.ev.on("creds.update", saveCreds);
 
   // ========================================
-  // CÓDIGO DE VINCULAÇÃO
-  // ========================================
-
-  if (!state.creds.registered) {
-
-    const numero = process.env.WHATSAPP_NUMBER;
-
-    if (!numero) {
-      console.log(
-        "❌ WHATSAPP_NUMBER não configurado no Render."
-      );
-      return;
-    }
-
-    try {
-
-      await new Promise(resolve =>
-        setTimeout(resolve, 3000)
-      );
-
-      // Código personalizado de 8 caracteres
-      const codigo =
-        await sock.requestPairingCode(
-          numero,
-          "ABCD1234"
-        );
-
-      console.log("");
-      console.log("======================================");
-      console.log("📱 CÓDIGO DE VINCULAÇÃO");
-      console.log("======================================");
-      console.log(codigo);
-      console.log("======================================");
-      console.log("");
-
-    } catch (erro) {
-
-      console.error(
-        "❌ ERRO AO GERAR CÓDIGO:"
-      );
-
-      console.error(erro);
-    }
-  }
-
-  // ========================================
   // CONEXÃO
   // ========================================
 
   sock.ev.on(
     "connection.update",
-    ({ connection, lastDisconnect }) => {
+    async ({ connection, lastDisconnect }) => {
+
+      console.log("📡 Status da conexão:", connection);
+
+      // ====================================
+      // GERAR CÓDIGO
+      // ====================================
+
+      if (
+        connection === "connecting" &&
+        !state.creds.registered
+      ) {
+
+        const numero = process.env.WHATSAPP_NUMBER;
+
+        if (!numero) {
+          console.log(
+            "❌ WHATSAPP_NUMBER não configurado."
+          );
+          return;
+        }
+
+        try {
+
+          await new Promise(resolve =>
+            setTimeout(resolve, 3000)
+          );
+
+          const codigo =
+            await sock.requestPairingCode(numero);
+
+          console.log("");
+          console.log("======================================");
+          console.log("📱 CÓDIGO DE VINCULAÇÃO");
+          console.log("======================================");
+          console.log(codigo);
+          console.log("======================================");
+          console.log("");
+
+        } catch (erro) {
+
+          console.error(
+            "❌ ERRO AO GERAR CÓDIGO:"
+          );
+
+          console.error(erro);
+        }
+      }
+
+      // ====================================
+      // CONECTADO
+      // ====================================
 
       if (connection === "open") {
 
         console.log("");
         console.log(
+          "======================================"
+        );
+        console.log(
           "🤖 BOT ACHADINHOS CONECTADO AO WHATSAPP!"
+        );
+        console.log(
+          "======================================"
         );
         console.log("");
 
       }
+
+      // ====================================
+      // DESCONECTADO
+      // ====================================
 
       if (connection === "close") {
 
         const motivo =
           lastDisconnect?.error?.output?.statusCode;
 
+        console.log(
+          "❌ Conexão fechada. Motivo:",
+          motivo
+        );
+
         if (motivo !== DisconnectReason.loggedOut) {
 
           console.log(
-            "🔄 Conexão perdida. Reconectando..."
+            "🔄 Tentando reconectar..."
           );
 
-          iniciarBot();
+          setTimeout(() => {
+            iniciarBot();
+          }, 3000);
 
         } else {
 
@@ -135,64 +157,78 @@ async function iniciarBot() {
     "messages.upsert",
     async ({ messages }) => {
 
-      const msg = messages[0];
+      for (const msg of messages) {
 
-      if (!msg.message || msg.key.fromMe) {
-        return;
-      }
+        if (!msg.message || msg.key.fromMe) {
+          continue;
+        }
 
-      const texto =
-        msg.message.conversation ||
-        msg.message.extendedTextMessage?.text ||
-        "";
+        const texto =
+          msg.message.conversation ||
+          msg.message.extendedTextMessage?.text ||
+          "";
 
-      const comando =
-        texto.toLowerCase().trim();
+        const comando =
+          texto.toLowerCase().trim();
 
-      // !BOT
-      if (comando === "!bot") {
-
-        await sock.sendMessage(
-          msg.key.remoteJid,
-          {
-            text:
-              "🤖 *BOT ACHADINHOS ONLINE!*\n\n" +
-              "🛍️ *ACHADOS OFERTAS IMPERDÍVEIS 📊📈*\n" +
-              "🔥 Bot funcionando normalmente!"
-          }
+        console.log(
+          "📩 Mensagem recebida:",
+          texto
         );
+
+        // ==================================
+        // !BOT
+        // ==================================
+
+        if (comando === "!bot") {
+
+          await sock.sendMessage(
+            msg.key.remoteJid,
+            {
+              text:
+                "🤖 *BOT ACHADINHOS ONLINE!*\n\n" +
+                "🛍️ *ACHADOS OFERTAS IMPERDÍVEIS 📊📈*\n" +
+                "🔥 Bot funcionando normalmente!"
+            }
+          );
+        }
+
+        // ==================================
+        // !AJUDA
+        // ==================================
+
+        if (comando === "!ajuda") {
+
+          await sock.sendMessage(
+            msg.key.remoteJid,
+            {
+              text:
+                "🤖 *COMANDOS DO BOT*\n\n" +
+                "🔹 !bot — Verificar se estou online\n" +
+                "🔹 !ajuda — Mostrar comandos\n" +
+                "🔹 !oferta — Testar uma oferta"
+            }
+          );
+        }
+
+        // ==================================
+        // !OFERTA
+        // ==================================
+
+        if (comando === "!oferta") {
+
+          await sock.sendMessage(
+            msg.key.remoteJid,
+            {
+              text:
+                "🔥 *OFERTA DO DIA!*\n\n" +
+                "🛍️ Produto em promoção\n" +
+                "💰 Aproveite o desconto!\n\n" +
+                "⚡ Corra porque pode acabar!"
+            }
+          );
+        }
       }
-
-      // !AJUDA
-      if (comando === "!ajuda") {
-
-        await sock.sendMessage(
-          msg.key.remoteJid,
-          {
-            text:
-              "🤖 *COMANDOS DO BOT*\n\n" +
-              "🔹 !bot — Verificar se estou online\n" +
-              "🔹 !ajuda — Mostrar os comandos\n" +
-              "🔹 !oferta — Testar uma oferta"
-          }
-        );
-      }
-
-      // !OFERTA
-      if (comando === "!oferta") {
-
-        await sock.sendMessage(
-          msg.key.remoteJid,
-          {
-            text:
-              "🔥 *OFERTA DO DIA!*\n\n" +
-              "🛍️ Produto em promoção\n" +
-              "💰 Aproveite o desconto!\n\n" +
-              "⚡ Corra porque pode acabar!"
-          }
-        );
-      }
-
     }
   );
 }
