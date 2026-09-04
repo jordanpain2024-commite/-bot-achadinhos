@@ -1,7 +1,8 @@
 const {
   default: makeWASocket,
   useMultiFileAuthState,
-  DisconnectReason
+  DisconnectReason,
+  Browsers
 } = require("@whiskeysockets/baileys");
 
 const pino = require("pino");
@@ -35,7 +36,8 @@ async function iniciarBot() {
   const sock = makeWASocket({
     auth: state,
     logger: pino({ level: "silent" }),
-    printQRInTerminal: false
+    printQRInTerminal: false,
+    browser: Browsers.ubuntu("Chrome")
   });
 
   sock.ev.on("creds.update", saveCreds);
@@ -44,146 +46,188 @@ async function iniciarBot() {
   // CONEXÃO
   // ========================================
 
-  sock.ev.on(
-    "connection.update",
-    async ({ connection, lastDisconnect }) => {
+  sock.ev.on("connection.update", async (update) => {
 
-      console.log("📡 Status da conexão:", connection);
+    const {
+      connection,
+      lastDisconnect
+    } = update;
 
-      // ====================================
-      // GERAR CÓDIGO
-      // ====================================
+    console.log("📡 Status da conexão:", connection);
 
-      if (
-        connection === "connecting" &&
-        !state.creds.registered
-      ) {
+    // ----------------------------------------
+    // CÓDIGO DE VINCULAÇÃO
+    // ----------------------------------------
 
-        const numero = process.env.WHATSAPP_NUMBER;
+    if (
+      connection === "connecting" &&
+      !state.creds.registered
+    ) {
 
-        if (!numero) {
-          console.log(
-            "❌ WHATSAPP_NUMBER não configurado."
-          );
-          return;
-        }
+      const numero = process.env.WHATSAPP_NUMBER;
 
-        try {
-
-          await new Promise(resolve =>
-            setTimeout(resolve, 3000)
-          );
-
-          const codigo =
-            await sock.requestPairingCode(numero);
-
-          console.log("");
-          console.log("======================================");
-          console.log("📱 CÓDIGO DE VINCULAÇÃO");
-          console.log("======================================");
-          console.log(codigo);
-          console.log("======================================");
-          console.log("");
-
-        } catch (erro) {
-
-          console.error(
-            "❌ ERRO AO GERAR CÓDIGO:"
-          );
-
-          console.error(erro);
-        }
+      if (!numero) {
+        console.log("❌ WHATSAPP_NUMBER não configurado.");
+        return;
       }
 
-      // ====================================
-      // CONECTADO
-      // ====================================
+      try {
 
-      if (connection === "open") {
+        await new Promise(resolve =>
+          setTimeout(resolve, 3000)
+        );
+
+        const codigo =
+          await sock.requestPairingCode(numero);
 
         console.log("");
-        console.log(
-          "======================================"
-        );
-        console.log(
-          "🤖 BOT ACHADINHOS CONECTADO AO WHATSAPP!"
-        );
-        console.log(
-          "======================================"
-        );
+        console.log("======================================");
+        console.log("📱 CÓDIGO DE VINCULAÇÃO");
+        console.log("======================================");
+        console.log(codigo);
+        console.log("======================================");
         console.log("");
 
-      }
+      } catch (erro) {
 
-      // ====================================
-      // DESCONECTADO
-      // ====================================
+        console.error("❌ ERRO AO GERAR CÓDIGO:");
+        console.error(erro);
 
-      if (connection === "close") {
-
-        const motivo =
-          lastDisconnect?.error?.output?.statusCode;
-
-        console.log(
-          "❌ Conexão fechada. Motivo:",
-          motivo
-        );
-
-        if (motivo !== DisconnectReason.loggedOut) {
-
-          console.log(
-            "🔄 Tentando reconectar..."
-          );
-
-          setTimeout(() => {
-            iniciarBot();
-          }, 3000);
-
-        } else {
-
-          console.log(
-            "❌ WhatsApp foi desconectado."
-          );
-        }
       }
     }
-  );
+
+    // ----------------------------------------
+    // CONECTADO
+    // ----------------------------------------
+
+    if (connection === "open") {
+
+      console.log("");
+      console.log("======================================");
+      console.log("🤖 BOT ACHADINHOS CONECTADO AO WHATSAPP!");
+      console.log("======================================");
+      console.log("");
+
+    }
+
+    // ----------------------------------------
+    // DESCONECTADO
+    // ----------------------------------------
+
+    if (connection === "close") {
+
+      const motivo =
+        lastDisconnect?.error?.output?.statusCode;
+
+      console.log("❌ Conexão fechada. Motivo:", motivo);
+
+      if (motivo !== DisconnectReason.loggedOut) {
+
+        console.log("🔄 Tentando reconectar...");
+
+        setTimeout(() => {
+          iniciarBot();
+        }, 3000);
+
+      } else {
+
+        console.log("❌ WhatsApp foi desconectado.");
+
+      }
+    }
+
+  });
 
   // ========================================
   // RECEBER MENSAGENS
   // ========================================
 
-  sock.ev.on(
-    "messages.upsert",
-    async ({ messages }) => {
+  sock.ev.on("messages.upsert", async ({ messages, type }) => {
 
-      for (const msg of messages) {
+    console.log("📨 Evento de mensagens:", type);
 
-        if (!msg.message || msg.key.fromMe) {
+    for (const msg of messages) {
+
+      try {
+
+        if (!msg.message) {
+          console.log("⚠️ Mensagem sem conteúdo.");
           continue;
         }
 
-        const texto =
-          msg.message.conversation ||
-          msg.message.extendedTextMessage?.text ||
-          "";
+        if (msg.key.fromMe) {
+          console.log("⏭️ Mensagem enviada pelo próprio bot.");
+          continue;
+        }
 
-        const comando =
-          texto.toLowerCase().trim();
+        const remoteJid = msg.key.remoteJid;
 
-        console.log(
-          "📩 Mensagem recebida:",
-          texto
-        );
+        // ====================================
+        // PEGAR TEXTO DA MENSAGEM
+        // ====================================
 
-        // ==================================
+        let texto = "";
+
+        if (msg.message.conversation) {
+
+          texto = msg.message.conversation;
+
+        } else if (
+          msg.message.extendedTextMessage?.text
+        ) {
+
+          texto =
+            msg.message.extendedTextMessage.text;
+
+        } else if (
+          msg.message.imageMessage?.caption
+        ) {
+
+          texto =
+            msg.message.imageMessage.caption;
+
+        } else if (
+          msg.message.videoMessage?.caption
+        ) {
+
+          texto =
+            msg.message.videoMessage.caption;
+
+        }
+
+        texto = String(texto || "").trim();
+
+        console.log("");
+        console.log("======================================");
+        console.log("📩 MENSAGEM RECEBIDA");
+        console.log("📍 Chat:", remoteJid);
+        console.log("💬 Texto:", texto);
+        console.log("======================================");
+
+        // ====================================
+        // SE NÃO TIVER TEXTO
+        // ====================================
+
+        if (!texto) {
+          console.log("⚠️ Essa mensagem não possui texto.");
+          continue;
+        }
+
+        const comando = texto
+          .toLowerCase()
+          .trim();
+
+        // ====================================
         // !BOT
-        // ==================================
+        // ====================================
 
         if (comando === "!bot") {
 
+          console.log("🤖 Comando !bot identificado!");
+          console.log("📤 Enviando resposta...");
+
           await sock.sendMessage(
-            msg.key.remoteJid,
+            remoteJid,
             {
               text:
                 "🤖 *BOT ACHADINHOS ONLINE!*\n\n" +
@@ -191,16 +235,20 @@ async function iniciarBot() {
                 "🔥 Bot funcionando normalmente!"
             }
           );
+
+          console.log("✅ Resposta do !bot enviada!");
         }
 
-        // ==================================
+        // ====================================
         // !AJUDA
-        // ==================================
+        // ====================================
 
-        if (comando === "!ajuda") {
+        else if (comando === "!ajuda") {
+
+          console.log("🤖 Comando !ajuda identificado!");
 
           await sock.sendMessage(
-            msg.key.remoteJid,
+            remoteJid,
             {
               text:
                 "🤖 *COMANDOS DO BOT*\n\n" +
@@ -209,16 +257,20 @@ async function iniciarBot() {
                 "🔹 !oferta — Testar uma oferta"
             }
           );
+
+          console.log("✅ Resposta do !ajuda enviada!");
         }
 
-        // ==================================
+        // ====================================
         // !OFERTA
-        // ==================================
+        // ====================================
 
-        if (comando === "!oferta") {
+        else if (comando === "!oferta") {
+
+          console.log("🤖 Comando !oferta identificado!");
 
           await sock.sendMessage(
-            msg.key.remoteJid,
+            remoteJid,
             {
               text:
                 "🔥 *OFERTA DO DIA!*\n\n" +
@@ -227,14 +279,45 @@ async function iniciarBot() {
                 "⚡ Corra porque pode acabar!"
             }
           );
+
+          console.log("✅ Resposta da !oferta enviada!");
         }
+
+        // ====================================
+        // COMANDO NÃO RECONHECIDO
+        // ====================================
+
+        else if (comando.startsWith("!")) {
+
+          console.log(
+            "❓ Comando não reconhecido:",
+            comando
+          );
+
+        }
+
+      } catch (erro) {
+
+        console.error("");
+        console.error("❌ ERRO AO PROCESSAR MENSAGEM:");
+        console.error(erro);
+        console.error("");
+
       }
+
     }
-  );
+
+  });
+
 }
 
 // ========================================
 // INICIAR
 // ========================================
 
-iniciarBot();
+iniciarBot().catch(erro => {
+
+  console.error("❌ ERRO FATAL AO INICIAR O BOT:");
+  console.error(erro);
+
+});
