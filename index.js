@@ -38,10 +38,6 @@ async function iniciarBot() {
     printQRInTerminal: false
   });
 
-  // ========================================
-  // SALVAR CREDENCIAIS
-  // ========================================
-
   sock.ev.on("creds.update", saveCreds);
 
   // ========================================
@@ -53,25 +49,28 @@ async function iniciarBot() {
     const numero = process.env.WHATSAPP_NUMBER;
 
     if (!numero) {
-
       console.log(
-        "❌ A variável WHATSAPP_NUMBER não foi configurada no Render."
+        "❌ WHATSAPP_NUMBER não configurado no Render."
       );
-
       return;
     }
 
     try {
 
-      // Esperar o WhatsApp iniciar
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise(resolve =>
+        setTimeout(resolve, 3000)
+      );
 
+      // Código personalizado de 8 caracteres
       const codigo =
-        await sock.requestPairingCode(numero);
+        await sock.requestPairingCode(
+          numero,
+          "ABCD1234"
+        );
 
       console.log("");
       console.log("======================================");
-      console.log("📱 CÓDIGO DE VINCULAÇÃO DO WHATSAPP");
+      console.log("📱 CÓDIGO DE VINCULAÇÃO");
       console.log("======================================");
       console.log(codigo);
       console.log("======================================");
@@ -80,7 +79,7 @@ async function iniciarBot() {
     } catch (erro) {
 
       console.error(
-        "❌ Erro ao gerar código de vinculação:"
+        "❌ ERRO AO GERAR CÓDIGO:"
       );
 
       console.error(erro);
@@ -113,7 +112,7 @@ async function iniciarBot() {
         if (motivo !== DisconnectReason.loggedOut) {
 
           console.log(
-            "🔄 Conexão perdida. Tentando novamente..."
+            "🔄 Conexão perdida. Reconectando..."
           );
 
           iniciarBot();
@@ -121,9 +120,8 @@ async function iniciarBot() {
         } else {
 
           console.log(
-            "❌ O WhatsApp foi desconectado."
+            "❌ WhatsApp foi desconectado."
           );
-
         }
       }
     }
@@ -151,10 +149,7 @@ async function iniciarBot() {
       const comando =
         texto.toLowerCase().trim();
 
-      // ====================================
       // !BOT
-      // ====================================
-
       if (comando === "!bot") {
 
         await sock.sendMessage(
@@ -168,10 +163,7 @@ async function iniciarBot() {
         );
       }
 
-      // ====================================
       // !AJUDA
-      // ====================================
-
       if (comando === "!ajuda") {
 
         await sock.sendMessage(
@@ -186,10 +178,7 @@ async function iniciarBot() {
         );
       }
 
-      // ====================================
       // !OFERTA
-      // ====================================
-
       if (comando === "!oferta") {
 
         await sock.sendMessage(
