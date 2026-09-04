@@ -7,9 +7,9 @@ const {
 const pino = require("pino");
 const http = require("http");
 
-// ===============================
+// ========================================
 // SERVIDOR PARA O RENDER
-// ===============================
+// ========================================
 
 const PORT = process.env.PORT || 3000;
 
@@ -23,35 +23,77 @@ http.createServer((req, res) => {
   console.log(`🌐 Servidor rodando na porta ${PORT}`);
 });
 
-// ===============================
-// BOT DO WHATSAPP
-// ===============================
+// ========================================
+// INICIAR BOT
+// ========================================
 
 async function iniciarBot() {
+
   const { state, saveCreds } =
     await useMultiFileAuthState("./auth");
 
   const sock = makeWASocket({
     auth: state,
-    logger: pino({ level: "silent" }),
-    printQRInTerminal: true
+    logger: pino({ level: "silent" })
   });
 
   // Salvar credenciais
   sock.ev.on("creds.update", saveCreds);
 
-  // Conexão
+  // ========================================
+  // CÓDIGO DE VINCULAÇÃO
+  // ========================================
+
+  if (!state.creds.registered) {
+
+    const numero = process.env.WHATSAPP_NUMBER;
+
+    if (!numero) {
+      console.log(
+        "❌ A variável WHATSAPP_NUMBER não foi configurada no Render."
+      );
+      return;
+    }
+
+    try {
+
+      const codigo =
+        await sock.requestPairingCode(numero);
+
+      console.log("");
+      console.log("======================================");
+      console.log("📱 CÓDIGO DE VINCULAÇÃO DO WHATSAPP");
+      console.log("======================================");
+      console.log(codigo);
+      console.log("======================================");
+      console.log("");
+
+    } catch (erro) {
+
+      console.error(
+        "❌ Erro ao gerar código de vinculação:"
+      );
+
+      console.error(erro);
+    }
+  }
+
+  // ========================================
+  // CONEXÃO
+  // ========================================
+
   sock.ev.on(
     "connection.update",
-    ({ connection, lastDisconnect, qr }) => {
-
-      if (qr) {
-        console.log("📱 QR CODE GERADO!");
-        console.log(qr);
-      }
+    ({ connection, lastDisconnect }) => {
 
       if (connection === "open") {
-        console.log("🤖 BOT ACHADINHOS CONECTADO!");
+
+        console.log("");
+        console.log(
+          "🤖 BOT ACHADINHOS CONECTADO AO WHATSAPP!"
+        );
+        console.log("");
+
       }
 
       if (connection === "close") {
@@ -62,7 +104,7 @@ async function iniciarBot() {
         if (motivo !== DisconnectReason.loggedOut) {
 
           console.log(
-            "🔄 Conexão perdida. Reconectando..."
+            "🔄 Conexão perdida. Tentando novamente..."
           );
 
           iniciarBot();
@@ -70,17 +112,16 @@ async function iniciarBot() {
         } else {
 
           console.log(
-            "❌ WhatsApp desconectado."
+            "❌ O WhatsApp foi desconectado."
           );
-
         }
       }
     }
   );
 
-  // ===============================
-  // MENSAGENS
-  // ===============================
+  // ========================================
+  // RECEBER MENSAGENS
+  // ========================================
 
   sock.ev.on(
     "messages.upsert",
@@ -100,9 +141,9 @@ async function iniciarBot() {
       const comando =
         texto.toLowerCase().trim();
 
-      // ===============================
+      // ====================================
       // !BOT
-      // ===============================
+      // ====================================
 
       if (comando === "!bot") {
 
@@ -111,15 +152,15 @@ async function iniciarBot() {
           {
             text:
               "🤖 *BOT ACHADINHOS ONLINE!*\n\n" +
-              "🛍️ Grupo: ACHADOS OFERTAS IMPERDÍVEIS\n" +
-              "🔥 Preparado para encontrar as melhores ofertas!"
+              "🛍️ *ACHADOS OFERTAS IMPERDÍVEIS*\n" +
+              "🔥 Bot funcionando normalmente!"
           }
         );
       }
 
-      // ===============================
+      // ====================================
       // !AJUDA
-      // ===============================
+      // ====================================
 
       if (comando === "!ajuda") {
 
@@ -128,16 +169,16 @@ async function iniciarBot() {
           {
             text:
               "🤖 *COMANDOS DO BOT*\n\n" +
-              "🔹 !bot — Verificar se estou online\n" +
-              "🔹 !ajuda — Mostrar comandos\n" +
-              "🔹 !oferta — Exemplo de oferta"
+              "🔹 !bot — Verificar se o bot está online\n" +
+              "🔹 !ajuda — Mostrar os comandos\n" +
+              "🔹 !oferta — Testar uma oferta"
           }
         );
       }
 
-      // ===============================
+      // ====================================
       // !OFERTA
-      // ===============================
+      // ====================================
 
       if (comando === "!oferta") {
 
@@ -156,8 +197,8 @@ async function iniciarBot() {
   );
 }
 
-// ===============================
-// INICIAR BOT
-// ===============================
+// ========================================
+// INICIAR
+// ========================================
 
 iniciarBot();
