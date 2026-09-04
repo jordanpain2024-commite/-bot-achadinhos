@@ -5,9 +5,31 @@ const {
 } = require("@whiskeysockets/baileys");
 
 const pino = require("pino");
+const http = require("http");
+
+// ===============================
+// SERVIDOR PARA O RENDER
+// ===============================
+
+const PORT = process.env.PORT || 3000;
+
+http.createServer((req, res) => {
+  res.writeHead(200, {
+    "Content-Type": "text/plain; charset=utf-8"
+  });
+
+  res.end("🤖 Bot Achadinhos está online!");
+}).listen(PORT, "0.0.0.0", () => {
+  console.log(`🌐 Servidor rodando na porta ${PORT}`);
+});
+
+// ===============================
+// BOT DO WHATSAPP
+// ===============================
 
 async function iniciarBot() {
-  const { state, saveCreds } = await useMultiFileAuthState("./auth");
+  const { state, saveCreds } =
+    await useMultiFileAuthState("./auth");
 
   const sock = makeWASocket({
     auth: state,
@@ -15,86 +37,127 @@ async function iniciarBot() {
     printQRInTerminal: true
   });
 
+  // Salvar credenciais
   sock.ev.on("creds.update", saveCreds);
 
-  sock.ev.on("connection.update", ({ connection, lastDisconnect, qr }) => {
+  // Conexão
+  sock.ev.on(
+    "connection.update",
+    ({ connection, lastDisconnect, qr }) => {
 
-    if (qr) {
-      console.log("📱 QR CODE GERADO!");
-      console.log(qr);
-    }
+      if (qr) {
+        console.log("📱 QR CODE GERADO!");
+        console.log(qr);
+      }
 
-    if (connection === "open") {
-      console.log("🤖 BOT ACHADINHOS CONECTADO!");
-    }
+      if (connection === "open") {
+        console.log("🤖 BOT ACHADINHOS CONECTADO!");
+      }
 
-    if (connection === "close") {
-      const motivo =
-        lastDisconnect?.error?.output?.statusCode;
+      if (connection === "close") {
 
-      if (motivo !== DisconnectReason.loggedOut) {
-        console.log("🔄 Conexão perdida. Reconectando...");
-        iniciarBot();
-      } else {
-        console.log("❌ WhatsApp desconectado.");
+        const motivo =
+          lastDisconnect?.error?.output?.statusCode;
+
+        if (motivo !== DisconnectReason.loggedOut) {
+
+          console.log(
+            "🔄 Conexão perdida. Reconectando..."
+          );
+
+          iniciarBot();
+
+        } else {
+
+          console.log(
+            "❌ WhatsApp desconectado."
+          );
+
+        }
       }
     }
-  });
+  );
 
-  sock.ev.on("messages.upsert", async ({ messages }) => {
-    const msg = messages[0];
+  // ===============================
+  // MENSAGENS
+  // ===============================
 
-    if (!msg.message || msg.key.fromMe) return;
+  sock.ev.on(
+    "messages.upsert",
+    async ({ messages }) => {
 
-    const texto =
-      msg.message.conversation ||
-      msg.message.extendedTextMessage?.text ||
-      "";
+      const msg = messages[0];
 
-    const comando = texto.toLowerCase().trim();
+      if (!msg.message || msg.key.fromMe) {
+        return;
+      }
 
-    // Comando !bot
-    if (comando === "!bot") {
-      await sock.sendMessage(msg.key.remoteJid, {
-        text:
-          "🤖 *BOT ACHADINHOS ONLINE!*\n\n" +
-          "🛍️ Grupo: ACHADOS OFERTAS IMPERDÍVEIS\n" +
-          "🔥 Preparado para encontrar as melhores ofertas!"
-      });
+      const texto =
+        msg.message.conversation ||
+        msg.message.extendedTextMessage?.text ||
+        "";
+
+      const comando =
+        texto.toLowerCase().trim();
+
+      // ===============================
+      // !BOT
+      // ===============================
+
+      if (comando === "!bot") {
+
+        await sock.sendMessage(
+          msg.key.remoteJid,
+          {
+            text:
+              "🤖 *BOT ACHADINHOS ONLINE!*\n\n" +
+              "🛍️ Grupo: ACHADOS OFERTAS IMPERDÍVEIS\n" +
+              "🔥 Preparado para encontrar as melhores ofertas!"
+          }
+        );
+      }
+
+      // ===============================
+      // !AJUDA
+      // ===============================
+
+      if (comando === "!ajuda") {
+
+        await sock.sendMessage(
+          msg.key.remoteJid,
+          {
+            text:
+              "🤖 *COMANDOS DO BOT*\n\n" +
+              "🔹 !bot — Verificar se estou online\n" +
+              "🔹 !ajuda — Mostrar comandos\n" +
+              "🔹 !oferta — Exemplo de oferta"
+          }
+        );
+      }
+
+      // ===============================
+      // !OFERTA
+      // ===============================
+
+      if (comando === "!oferta") {
+
+        await sock.sendMessage(
+          msg.key.remoteJid,
+          {
+            text:
+              "🔥 *OFERTA DO DIA!*\n\n" +
+              "🛍️ Produto em promoção\n" +
+              "💰 Aproveite o desconto!\n\n" +
+              "⚡ Corra porque pode acabar!"
+          }
+        );
+      }
     }
-
-    // Comando !ajuda
-    if (comando === "!ajuda") {
-      await sock.sendMessage(msg.key.remoteJid, {
-        text:
-          "🤖 *COMANDOS DO BOT*\n\n" +
-          "🔹 !bot — Verificar se estou online\n" +
-          "🔹 !ajuda — Mostrar comandos\n" +
-          "🔹 !oferta — Exemplo de oferta"
-      });
-    }
-
-    // Comando !oferta
-    if (comando === "!oferta") {
-      await sock.sendMessage(msg.key.remoteJid, {
-        text:
-          "🔥 *OFERTA DO DIA!*\n\n" +
-          "🛍️ Produto em promoção\n" +
-          "💰 Aproveite o desconto!\n\n" +
-          "⚡ Corra porque pode acabar!"
-      });
-    }
-  });
+  );
 }
 
+// ===============================
+// INICIAR BOT
+// ===============================
+
 iniciarBot();
-const http = require("http");
-
-const PORT = process.env.PORT || 3000;
-
-http.createServer((req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("Bot está online!");
-}).listen(PORT, "0.0.0.0", () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
-});
