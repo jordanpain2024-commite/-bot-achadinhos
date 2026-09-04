@@ -34,10 +34,14 @@ async function iniciarBot() {
 
   const sock = makeWASocket({
     auth: state,
-    logger: pino({ level: "silent" })
+    logger: pino({ level: "silent" }),
+    printQRInTerminal: false
   });
 
-  // Salvar credenciais
+  // ========================================
+  // SALVAR CREDENCIAIS
+  // ========================================
+
   sock.ev.on("creds.update", saveCreds);
 
   // ========================================
@@ -49,13 +53,18 @@ async function iniciarBot() {
     const numero = process.env.WHATSAPP_NUMBER;
 
     if (!numero) {
+
       console.log(
         "❌ A variável WHATSAPP_NUMBER não foi configurada no Render."
       );
+
       return;
     }
 
     try {
+
+      // Esperar o WhatsApp iniciar
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
       const codigo =
         await sock.requestPairingCode(numero);
@@ -114,6 +123,7 @@ async function iniciarBot() {
           console.log(
             "❌ O WhatsApp foi desconectado."
           );
+
         }
       }
     }
@@ -152,7 +162,7 @@ async function iniciarBot() {
           {
             text:
               "🤖 *BOT ACHADINHOS ONLINE!*\n\n" +
-              "🛍️ *ACHADOS OFERTAS IMPERDÍVEIS*\n" +
+              "🛍️ *ACHADOS OFERTAS IMPERDÍVEIS 📊📈*\n" +
               "🔥 Bot funcionando normalmente!"
           }
         );
@@ -169,7 +179,7 @@ async function iniciarBot() {
           {
             text:
               "🤖 *COMANDOS DO BOT*\n\n" +
-              "🔹 !bot — Verificar se o bot está online\n" +
+              "🔹 !bot — Verificar se estou online\n" +
               "🔹 !ajuda — Mostrar os comandos\n" +
               "🔹 !oferta — Testar uma oferta"
           }
@@ -193,6 +203,7 @@ async function iniciarBot() {
           }
         );
       }
+
     }
   );
 }
